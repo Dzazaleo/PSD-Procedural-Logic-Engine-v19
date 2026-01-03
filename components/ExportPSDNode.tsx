@@ -1,5 +1,5 @@
-import React, { memo, useState, useMemo } from 'react';
-import { Handle, Position, NodeProps, useEdges } from 'reactflow';
+import React, { memo, useState, useMemo, useEffect } from 'react';
+import { Handle, Position, NodeProps, useEdges, useUpdateNodeInternals } from 'reactflow';
 import { TransformedLayer, TransformedPayload, MappingContext } from '../types';
 import { useProceduralStore } from '../store/ProceduralContext';
 import { findLayerByPath, writePsdFile } from '../services/psdService';
@@ -160,6 +160,7 @@ export const ExportPSDNode = memo(({ id }: NodeProps) => {
   const [exportError, setExportError] = useState<string | null>(null);
 
   const edges = useEdges();
+  const updateNodeInternals = useUpdateNodeInternals();
   
   // Access global registries 
   const { psdRegistry, templateRegistry, payloadRegistry, reviewerRegistry, resolvedRegistry } = useProceduralStore();
@@ -229,8 +230,15 @@ export const ExportPSDNode = memo(({ id }: NodeProps) => {
   const filledSlots = slotConnections.size;
   const isTemplateReady = !!templateMetadata;
   const isExportReady = isTemplateReady && filledSlots > 0 && validationErrors.length === 0;
+
+  // 4. Force Handle Update on Layout Change
+  // When the number of slots changes, the node height changes. 
+  // We must notify React Flow to recalculate handle positions.
+  useEffect(() => {
+    updateNodeInternals(id);
+  }, [id, containers.length, validationErrors.length, updateNodeInternals]);
   
-  // 4. Export Logic
+  // 5. Export Logic
   const handleExport = async () => {
     if (!templateMetadata || !isExportReady) return;
     
@@ -488,8 +496,8 @@ export const ExportPSDNode = memo(({ id }: NodeProps) => {
          </div>
       </div>
 
-      {/* Dynamic Slots Area */}
-      <div className="bg-slate-900 p-2 space-y-1 max-h-64 overflow-y-auto custom-scrollbar">
+      {/* Dynamic Slots Area - UPDATED: Removed fixed height and overflow to allow vertical expansion */}
+      <div className="bg-slate-900 p-2 space-y-1 flex flex-col">
           {!isTemplateReady ? (
               <div className="text-[10px] text-slate-500 text-center py-4 border border-dashed border-slate-800 rounded mx-2 my-2">
                   Waiting for Target Template...
