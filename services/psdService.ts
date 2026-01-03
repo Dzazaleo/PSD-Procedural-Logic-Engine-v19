@@ -350,7 +350,9 @@ export const getCleanLayerTree = (layers: Layer[], path: string = ''): Serializa
     const node: SerializableLayer = {
       id: currentPath,
       name: child.name || `Layer ${index}`,
-      type: child.children ? 'group' : 'layer',
+      // Strict Check: child.children must be an array (even if empty) to be a group.
+      // This ensures empty folders are typed as 'group', so recursive counting sees 0 leaves.
+      type: (child.children && Array.isArray(child.children)) ? 'group' : 'layer',
       isVisible: !child.hidden,
       opacity: normalizedOpacity, 
       coords: {

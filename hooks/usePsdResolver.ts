@@ -17,11 +17,18 @@ export interface ResolverResult {
   totalCount?: number; // Recursive count of visible/leaf layers
 }
 
-// Helper: Deep recursive search for a layer by name
-// Returns the first match found in the tree (pre-order traversal)
-const findLayerDeep = (tree: SerializableLayer[], targetName: string, caseSensitive: boolean): SerializableLayer | null => {
-  for (const layer of tree) {
+// Helper: Breadth-First Search (BFS)
+// Uses a Queue to search level-by-level.
+// This prevents deeply nested layers from "shadowing" top-level containers
+// (e.g., matching a nested layer named "Symbols" before the main "Symbols" group).
+const findLayerBFS = (tree: SerializableLayer[], targetName: string, caseSensitive: boolean): SerializableLayer | null => {
+  const queue: SerializableLayer[] = [...tree];
+  
+  while (queue.length > 0) {
+    const layer = queue.shift()!;
     const layerName = layer.name || '';
+    
+    // Strict string comparison (handles numeric strings like "4" correctly)
     const isMatch = caseSensitive 
       ? layerName === targetName 
       : layerName.toLowerCase() === targetName.toLowerCase();
@@ -30,31 +37,30 @@ const findLayerDeep = (tree: SerializableLayer[], targetName: string, caseSensit
       return layer;
     }
 
-    // Recursive Step
+    // Enqueue children to search the next level
     if (layer.children && layer.children.length > 0) {
-      const foundInChildren = findLayerDeep(layer.children, targetName, caseSensitive);
-      if (foundInChildren) {
-        return foundInChildren;
-      }
+      queue.push(...layer.children);
     }
   }
   return null;
 };
 
 // Helper: Recursively count leaf layers (pixels/generative)
-// Groups sum their children; Layers return 1.
+// STRICT LOGIC: 
+// - 'group': Returns sum of children (0 if empty)
+// - 'layer' / 'generative': Returns 1 (It is a leaf)
 const getRecursiveLeafCount = (layer: SerializableLayer): number => {
-  // Base case: If it's not a group, it's a content layer (1)
+  // If this specific node is a pixel or generative layer, it counts as 1 leaf
   if (layer.type !== 'group') {
     return 1;
   }
   
-  // If it is a group but has no children, it's empty (0)
+  // If it is a group, it does NOT count as a layer itself.
+  // Instead, we sum the leaf counts of all its children recursively.
   if (!layer.children || layer.children.length === 0) {
     return 0;
   }
 
-  // Recursive case: Sum of children's leaf counts
   return layer.children.reduce((sum, child) => sum + getRecursiveLeafCount(child), 0);
 };
 
@@ -63,7 +69,7 @@ const getRecursiveLeafCount = (layer: SerializableLayer): number => {
  * 
  * Encapsulates the logic for:
  * 1. Stripping procedural prefixes (e.g., '!!SYMBOLS' -> 'SYMBOLS')
- * 2. Strict & Case-insensitive matching using DEEP RECURSION
+ * 2. Strict & Case-insensitive matching using BREADTH-FIRST SEARCH (BFS)
  * 3. Hierarchy/Content validation using RECURSIVE LEAF COUNTING
  */
 export const usePsdResolver = () => {
@@ -106,8 +112,8 @@ export const usePsdResolver = () => {
       };
     }
 
-    // 2. Strict Deep Search (Priority 1)
-    const strictMatch = findLayerDeep(designTree, cleanTargetName, true);
+    // 2. Strict BFS Search (Priority 1: Exact Name, Top-Level Bias)
+    const strictMatch = findLayerBFS(designTree, cleanTargetName, true);
     
     if (strictMatch) {
        const totalCount = getRecursiveLeafCount(strictMatch);
@@ -124,13 +130,14 @@ export const usePsdResolver = () => {
        return { 
          status: 'RESOLVED', 
          layer: strictMatch, 
-         message: `${totalCount} Layers Found`,
+         // UI feedback: Clarify that this is a deep count
+         message: `${totalCount} Layers (Recursive)`,
          totalCount: totalCount
        };
     }
 
-    // 3. Loose Deep Search (Priority 2 - Fallback)
-    const looseMatch = findLayerDeep(designTree, cleanTargetName, false);
+    // 3. Loose BFS Search (Priority 2: Case Insensitive, Top-Level Bias)
+    const looseMatch = findLayerBFS(designTree, cleanTargetName, false);
     
     if (looseMatch) {
        const totalCount = getRecursiveLeafCount(looseMatch);
@@ -146,7 +153,7 @@ export const usePsdResolver = () => {
        return { 
          status: 'CASE_MISMATCH', 
          layer: looseMatch, 
-         message: `Warning: Case Mismatch (${totalCount} Layers)`,
+         message: `Case Mismatch: ${totalCount} Layers (Recursive)`,
          totalCount: totalCount
        };
     }
