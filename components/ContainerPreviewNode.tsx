@@ -166,7 +166,7 @@ const PreviewInstanceRow = memo(({ index, nodeId }: { index: number, nodeId: str
             </div>
 
             {/* Main Visual Stage (Safe-Zone Rendering) */}
-            <div className="flex-1 relative bg-slate-950 flex items-center justify-center p-4 min-h-[300px] overflow-hidden rounded border border-emerald-900/30 shadow-inner group/stage">
+            <div className="flex-1 relative flex items-center justify-center p-4 min-h-[300px] overflow-hidden rounded border border-emerald-900/30 shadow-inner group/stage">
                  
                  {/* Empty State */}
                  {!incomingPayload && (
@@ -190,10 +190,10 @@ const PreviewInstanceRow = memo(({ index, nodeId }: { index: number, nodeId: str
                      </div>
                  )}
 
-                 {/* Safe Zone Matte Container */}
+                 {/* Safe Zone Matte Container - BLUEPRINT MODE */}
                  {incomingPayload && (
                     <div className="absolute inset-4 pointer-events-none z-0">
-                        <div className="w-full h-full border-2 border-dashed border-emerald-500/20 bg-slate-900/50 flex flex-col justify-end">
+                        <div className="w-full h-full border-2 border-dashed border-emerald-500/40 flex flex-col justify-end">
                              <div className="p-1.5 bg-black/60 backdrop-blur-sm self-start rounded-tr text-[9px] font-mono text-emerald-500/70 border-t border-r border-emerald-500/10">
                                 {Math.round(targetW)}x{Math.round(targetH)}px
                              </div>
